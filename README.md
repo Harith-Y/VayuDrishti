@@ -71,9 +71,15 @@ The app runs on [http://localhost:5173](http://localhost:5173) by default.
 
 ## Features
 - Real-time AQI and weather data for multiple cities
-- Historical trends and forecasts
-- Health alerts via Firebase Cloud Messaging
-- Responsive dashboard UI
+- Interactive AQI map visualization
+- Historical AQI and weather trends with charts
+- Short-term AQI forecasting using machine learning
+- Health advisories and personalized alerts based on AQI levels
+- Push notifications for health alerts (via Firebase Cloud Messaging)
+- Responsive, mobile-friendly dashboard UI
+- City search and selection for personalized data
+- Pollutant breakdown and detailed pollutant cards
+- Customizable settings for notifications and user preferences
 
 ---
 
