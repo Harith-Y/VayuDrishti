@@ -6,13 +6,47 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 
+// Geocoding function using OpenStreetMap Nominatim
+async function geocode(query: string) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+  const response = await fetch(url, {
+    headers: {
+      'Accept-Language': 'en',
+    },
+  });
+  const data = await response.json();
+  if (data && data.length > 0) {
+    return {
+      lat: parseFloat(data[0].lat),
+      lon: parseFloat(data[0].lon),
+      display_name: data[0].display_name,
+    };
+  }
+  throw new Error('Location not found');
+}
+
 export function LandingPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [locationResult, setLocationResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (searchQuery.trim()) {
-      navigate('/dashboard', { state: { searchQuery } });
+      setLoading(true);
+      setError(null);
+      setLocationResult(null);
+      try {
+        // 1. Geocode the input
+        const location = await geocode(searchQuery);
+        setLocationResult(location);
+        // 2. (Optional) Use coordinates to fetch AQI data here
+      } catch (err: any) {
+        setError(err.message || 'Error fetching location');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -63,7 +97,7 @@ export function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="max-w-md mx-auto mb-16"
+            className="max-w-md mx-auto mb-4"
           >
             <div className="relative">
               <div className="flex">
@@ -74,18 +108,29 @@ export function LandingPage() {
                     placeholder="Enter city name or PIN code"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                     className="pl-10 pr-4 py-3 text-lg rounded-l-lg border-r-0 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <Button 
                   onClick={handleSearch}
                   className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-r-lg rounded-l-none"
+                  disabled={loading}
                 >
-                  <Search className="h-5 w-5" />
+                  {loading ? <span>...</span> : <Search className="h-5 w-5" />}
                 </Button>
               </div>
             </div>
+            {/* Location Result or Error */}
+            {error && <div className="text-red-600 mt-2">{error}</div>}
+            {locationResult && (
+              <div className="mt-4 bg-blue-50 p-4 rounded shadow text-left">
+                <div className="text-lg font-semibold mb-1">{locationResult.display_name}</div>
+                <div className="text-gray-700">Lat: <span className="font-bold">{locationResult.lat}</span></div>
+                <div className="text-gray-700">Lon: <span className="font-bold">{locationResult.lon}</span></div>
+                {/* Add AQI info here if you fetch it */}
+              </div>
+            )}
           </motion.div>
 
           {/* Quick Stats */}
