@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
@@ -12,10 +12,12 @@ import {
   Moon, 
   Sun, 
   Menu, 
-  X 
+  X, 
+  User 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '../App';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,10 +31,52 @@ const navigation = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
+function getInitials(email: string | undefined) {
+  if (!email) return '';
+  const [name] = email.split('@');
+  const parts = name.split(/[._-]/);
+  if (parts.length === 1) return parts[0][0]?.toUpperCase() || '';
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function stringToColor(str: string) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const color = `hsl(${hash % 360}, 70%, 60%)`;
+  return color;
+}
+
 export function Layout({ children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const location = useLocation();
+  const { user } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    if (profileOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [profileOpen]);
+
+  const { setUser } = useAuth();
+  const handleLogout = async () => {
+    await import('../lib/supabaseClient').then(({ supabase }) => supabase.auth.signOut());
+    setUser(null);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -69,6 +113,37 @@ export function Layout({ children }: LayoutProps) {
                   </Link>
                 );
               })}
+              {/* Profile Dropdown */}
+              {user && (
+                <div className="relative ml-4" ref={profileRef}>
+                  <button
+                    onClick={() => setProfileOpen((v) => !v)}
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 hover:ring-2 hover:ring-blue-400 transition-all"
+                    style={{ background: user.email ? stringToColor(user.email) : undefined }}
+                  >
+                    {user.email ? (
+                      <span className="text-white font-bold text-lg">
+                        {getInitials(user.email)}
+                      </span>
+                    ) : (
+                      <User className="h-6 w-6 text-blue-700 dark:text-blue-300" />
+                    )}
+                  </button>
+                  {profileOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 z-50 border border-gray-200 dark:border-gray-700">
+                      <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700">
+                        {user.email}
+                      </div>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </nav>
 
             {/* Theme Toggle & Mobile Menu */}
