@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Wind, Eye, Droplets, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,7 +47,22 @@ const mockData: DashboardData = {
 };
 
 export function Dashboard() {
-  const [currentData, setCurrentData] = useState<DashboardData>(mockData);
+  const locationState = useLocation();
+  // Try to get location from navigation state
+  const passedLocation = locationState.state?.location;
+
+  // Use the display_name from geocoding if available, else fallback to mock
+  const [currentData, setCurrentData] = useState<DashboardData>({
+    ...mockData,
+    location: passedLocation?.display_name || mockData.location,
+  });
+
+  useEffect(() => {
+    // If the location changes (e.g., user navigates with a new search), update the location
+    if (passedLocation?.display_name) {
+      setCurrentData(prev => ({ ...prev, location: passedLocation.display_name }));
+    }
+  }, [passedLocation]);
 
   useEffect(() => {
     // Simulate real-time updates
