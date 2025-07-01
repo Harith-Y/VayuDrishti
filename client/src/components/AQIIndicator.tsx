@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Wind, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getAQIColor, getAQICategory } from '@/lib/aqi';
+import { getAQIColor } from '@/lib/aqi';
 
 interface AQIIndicatorProps {
   aqi: number;

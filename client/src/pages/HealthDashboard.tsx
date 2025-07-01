@@ -120,7 +120,7 @@ export function HealthDashboard() {
         transition={{ duration: 0.6, delay: 0.2 }}
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
       >
-        {healthMetrics.map((metric, index) => (
+        {healthMetrics.map((metric) => (
           <Card key={metric.name}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -147,7 +147,7 @@ export function HealthDashboard() {
         transition={{ duration: 0.6, delay: 0.3 }}
         className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8"
       >
-        {healthRecommendations.map((group, index) => {
+        {healthRecommendations.map((group) => {
           const Icon = group.icon;
           return (
             <Card key={group.title} className="h-full">

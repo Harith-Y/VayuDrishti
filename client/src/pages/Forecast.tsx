@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ForecastChart } from '@/components/ForecastChart';
-import { getAQIColor, getAQICategory } from '@/lib/aqi';
+import { getAQIColor } from '@/lib/aqi';
 
 // Mock forecast data
 const forecastData = [

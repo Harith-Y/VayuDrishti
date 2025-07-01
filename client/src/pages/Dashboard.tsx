@@ -2,16 +2,38 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Wind, Eye, Droplets, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { AQIIndicator } from '@/components/AQIIndicator';
 import { PollutantCard } from '@/components/PollutantCard';
 import { AQIMap } from '@/components/AQIMap';
 
+type PollutantStatus = 'good' | 'moderate' | 'unhealthy' | 'hazardous';
+
+type Pollutant = {
+  value: number;
+  unit: string;
+  status: PollutantStatus;
+};
+
+type DashboardData = {
+  location: string;
+  aqi: number;
+  category: PollutantStatus;
+  lastUpdated: Date;
+  pollutants: {
+    pm25: Pollutant;
+    pm10: Pollutant;
+    no2: Pollutant;
+    so2: Pollutant;
+    co: Pollutant;
+    o3: Pollutant;
+  };
+};
+
 // Mock data - in real app, this would come from an API
-const mockData = {
+const mockData: DashboardData = {
   location: 'Delhi, India',
   aqi: 78,
-  category: 'Moderate',
+  category: 'moderate',
   lastUpdated: new Date(),
   pollutants: {
     pm25: { value: 45, unit: 'μg/m³', status: 'moderate' },
@@ -24,7 +46,7 @@ const mockData = {
 };
 
 export function Dashboard() {
-  const [currentData, setCurrentData] = useState(mockData);
+  const [currentData, setCurrentData] = useState<DashboardData>(mockData);
 
   useEffect(() => {
     // Simulate real-time updates

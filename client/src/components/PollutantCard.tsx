@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion';
-import { DivideIcon as LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -9,7 +8,7 @@ interface PollutantCardProps {
   value: number;
   unit: string;
   status: 'good' | 'moderate' | 'unhealthy' | 'hazardous';
-  icon: LucideIcon;
+  icon: React.ComponentType<{ className?: string }>;
   description: string;
 }
 
