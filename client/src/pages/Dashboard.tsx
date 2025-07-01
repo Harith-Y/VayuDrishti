@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AQIIndicator } from '@/components/AQIIndicator';
 import { PollutantCard } from '@/components/PollutantCard';
 import { AQIMap } from '@/components/AQIMap';
+import { useAuth } from '../App';
+import { supabase } from '../lib/supabaseClient';
 
 type PollutantStatus = 'good' | 'moderate' | 'unhealthy' | 'hazardous';
 
@@ -47,11 +49,9 @@ const mockData: DashboardData = {
 };
 
 export function Dashboard() {
+  const { user } = useAuth();
   const locationState = useLocation();
-  // Try to get location from navigation state
   const passedLocation = locationState.state?.location;
-
-  // Use the display_name from geocoding if available, else fallback to mock
   const [currentData, setCurrentData] = useState<DashboardData>({
     ...mockData,
     location: passedLocation?.display_name || mockData.location,
@@ -61,8 +61,20 @@ export function Dashboard() {
     // If the location changes (e.g., user navigates with a new search), update the location
     if (passedLocation?.display_name) {
       setCurrentData(prev => ({ ...prev, location: passedLocation.display_name }));
+    } else if (user) {
+      // Fetch user's saved location from Supabase
+      (async () => {
+        const { data } = await supabase
+          .from('users')
+          .select('location')
+          .eq('id', user.id)
+          .single();
+        if (data && data.location) {
+          setCurrentData(prev => ({ ...prev, location: data.location }));
+        }
+      })();
     }
-  }, [passedLocation]);
+  }, [passedLocation, user]);
 
   useEffect(() => {
     // Simulate real-time updates
