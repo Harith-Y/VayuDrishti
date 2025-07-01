@@ -72,6 +72,10 @@ export function Layout({ children }: LayoutProps) {
     };
   }, [profileOpen]);
 
+  useEffect(() => {
+    setProfileOpen(false);
+  }, [user, location]);
+
   const { setUser } = useAuth();
   const handleLogout = async () => {
     await import('../lib/supabaseClient').then(({ supabase }) => supabase.auth.signOut());

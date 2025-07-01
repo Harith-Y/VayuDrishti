@@ -54,10 +54,10 @@ function App() {
         <Router>
           <Layout>
             <Routes>
-              <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-              <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
+              <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
+              <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/" element={<PrivateRoute user={user}><Dashboard /></PrivateRoute>} />
+              <Route path="/" element={<LandingPage user={user} />} />
               <Route path="/dashboard" element={<PrivateRoute user={user}><Dashboard /></PrivateRoute>} />
               <Route path="/trends" element={<PrivateRoute user={user}><HistoricalTrends /></PrivateRoute>} />
               <Route path="/forecast" element={<PrivateRoute user={user}><Forecast /></PrivateRoute>} />

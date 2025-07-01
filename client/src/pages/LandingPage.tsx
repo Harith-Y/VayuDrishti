@@ -25,7 +25,7 @@ async function geocode(query: string) {
   throw new Error('Location not found');
 }
 
-export function LandingPage() {
+export function LandingPage({ user }: { user: any }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +45,14 @@ export function LandingPage() {
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  const handleGetStarted = () => {
+    if (user) {
+      navigate('/dashboard');
+    } else {
+      navigate('/login');
     }
   };
 
@@ -222,7 +230,7 @@ export function LandingPage() {
           <Button 
             size="lg" 
             className="px-8 py-3 text-lg bg-blue-600 hover:bg-blue-700"
-            onClick={() => navigate('/dashboard')}
+            onClick={handleGetStarted}
           >
             Get Started
           </Button>
