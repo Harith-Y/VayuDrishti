@@ -60,3 +60,5 @@ router.post('/user-health', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch user health condition' });
   }
 });
+
+module.exports = router;
