@@ -7,7 +7,7 @@ build/
 
 # Environment variables
 .env
-.env.*
+.env.local
 firebase-service-key.json
 
 # Logs
