@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, MapPin, Smartphone, Mail, MessageSquare, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { useAuth } from '../App';
+import { supabase } from '../lib/supabaseClient';
 
 interface NotificationSettings {
   pushNotifications: boolean;
@@ -18,11 +20,11 @@ interface NotificationSettings {
   thresholdValue: number[];
   alertTiming: string;
   location: string;
-  phone: string;
   email: string;
 }
 
 export function Settings() {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<NotificationSettings>({
     pushNotifications: true,
     emailAlerts: false,
@@ -32,9 +34,28 @@ export function Settings() {
     thresholdValue: [100],
     alertTiming: 'immediate',
     location: 'Delhi, India',
-    phone: '',
     email: ''
   });
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (data) {
+        setSettings(prev => ({
+          ...prev,
+          ...data,
+          thresholdValue: data.alert_threshold ? [data.alert_threshold] : prev.thresholdValue,
+        }));
+      }
+    };
+    fetchUserProfile();
+  }, [user]);
 
   const handleToggle = (key: keyof NotificationSettings) => {
     setSettings(prev => ({
@@ -55,6 +76,25 @@ export function Settings() {
       ...prev,
       thresholdValue: value
     }));
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+    setSaveStatus('idle');
+    const updates = {
+      location: settings.location,
+      alert_threshold: settings.thresholdValue[0],
+    };
+    const { error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', user.id);
+    if (error) {
+      setSaveStatus('error');
+    } else {
+      setSaveStatus('success');
+    }
+    setTimeout(() => setSaveStatus('idle'), 3000);
   };
 
   return (
@@ -272,21 +312,9 @@ export function Settings() {
                 type="email"
                 value={settings.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
-                placeholder="your.email@example.com"
+                placeholder={user?.email || 'your.email@example.com'}
                 disabled={!settings.emailAlerts}
                 className={!settings.emailAlerts ? 'opacity-50' : ''}
-              />
-            </div>
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={settings.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                placeholder="+91 9876543210"
-                disabled={!settings.smsAlerts}
-                className={!settings.smsAlerts ? 'opacity-50' : ''}
               />
             </div>
           </CardContent>
@@ -298,9 +326,13 @@ export function Settings() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.5 }}
-        className="flex justify-end"
+        className="flex flex-col items-end"
       >
-        <Button size="lg" className="px-8">
+        <div className="mb-2 h-6">
+          {saveStatus === 'success' && <span className="text-green-600">Settings saved!</span>}
+          {saveStatus === 'error' && <span className="text-red-600">Error saving settings.</span>}
+        </div>
+        <Button size="lg" className="px-8" onClick={handleSave}>
           Save Settings
         </Button>
       </motion.div>
