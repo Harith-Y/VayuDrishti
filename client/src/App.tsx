@@ -46,7 +46,16 @@ function App() {
     setUser(null);
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 via-white to-green-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <span className="text-lg text-blue-700 dark:text-blue-300 font-semibold">Loading your experience...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ user, setUser }}>
