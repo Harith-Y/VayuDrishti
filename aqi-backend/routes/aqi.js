@@ -1,6 +1,3 @@
-
-
-// routes/aqi.js
 const router = require('express').Router();
 const axios = require('axios');
 const supabase = require('../utils/supabaseClient');
@@ -40,5 +37,26 @@ router.get('/current', async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: 'Failed to fetch AQI data' });
+  }
+});
+
+// Example endpoint to fetch user health condition by email
+router.post('/user-health', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+  try {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('health_condition')
+      .eq('email', email)
+      .single();
+    if (error || !user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ health_condition: user.health_condition });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user health condition' });
   }
 });

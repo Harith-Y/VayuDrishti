@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const axios = require("axios");
 const supabase = require("../utils/supabaseClient");
+const { getHealthAdvisory } = require("./getHealthAdvisory");
 
 const locations = [
   { city: "Hyderabad", lat: 17.385044, lon: 78.486671 },
@@ -35,6 +36,18 @@ async function fetchAndStore() {
         no2: pollutants.no2 || null,
         time: new Date().toISOString()
       });
+
+      // Log health advisory as alert
+      const aqi = pollutants.pm25 || pollutants.pm10 || pollutants.no2 || null;
+      if (aqi !== null) {
+        const { message } = getHealthAdvisory(aqi);
+        await supabase.from('alerts').insert({
+          user_id: null, // No user context in scheduler
+          message: `AQI reached ${aqi}. ${message}`,
+          city: loc.city,
+          created_at: new Date().toISOString()
+        });
+      }
 
       // Fetch weather from OpenWeatherMap
       const weatherRes = await axios.get("https://api.openweathermap.org/data/2.5/weather", {

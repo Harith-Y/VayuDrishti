@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import HealthAdvisoryCard from "../components/HealthAdvisoryCard";
 
 const currentAQI = 78;
+const healthCondition = 'asthma'; // TODO: get from user
 const category = 'Moderate';
 
 const healthRecommendations = [
@@ -112,6 +114,9 @@ export function HealthDashboard() {
           </AlertDescription>
         </Alert>
       </motion.div>
+      <div className="mb-8">
+      <HealthAdvisoryCard aqi={currentAQI} healthCondition={healthCondition} />
+      </div>
 
       {/* Health Risk Metrics */}
       <motion.div
