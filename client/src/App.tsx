@@ -11,6 +11,7 @@ import { Toaster } from '@/components/ui/toaster';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
+import NotFound from './pages/NotFound';
 import { useEffect, useState, createContext, useContext } from 'react';
 import { supabase } from './lib/supabaseClient';
 
@@ -62,6 +63,7 @@ function App() {
               <Route path="/forecast" element={<PrivateRoute user={user}><Forecast /></PrivateRoute>} />
               <Route path="/health" element={<PrivateRoute user={user}><HealthDashboard /></PrivateRoute>} />
               <Route path="/settings" element={<PrivateRoute user={user}><Settings /></PrivateRoute>} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>
           <Toaster />
