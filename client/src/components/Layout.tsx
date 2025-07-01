@@ -79,8 +79,8 @@ export function Layout({ children }: LayoutProps) {
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 className="hidden sm:flex"
               >
-                <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <Sun className="absolute h-4 w-4 text-yellow-500 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-4 w-4 text-gray-800 dark:text-yellow-300 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               </Button>
 
               <Button
