@@ -1,4 +1,5 @@
 require('dotenv').config();
+require("./scheduler/aqiJob"); // ⏱️ Starts cron job
 const express = require('express');
 const cors = require('cors');
 
