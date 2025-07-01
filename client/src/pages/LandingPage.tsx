@@ -27,7 +27,6 @@ async function geocode(query: string) {
 
 export function LandingPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [locationResult, setLocationResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -36,12 +35,11 @@ export function LandingPage() {
     if (searchQuery.trim()) {
       setLoading(true);
       setError(null);
-      setLocationResult(null);
       try {
         // 1. Geocode the input
         const location = await geocode(searchQuery);
-        setLocationResult(location);
-        // 2. (Optional) Use coordinates to fetch AQI data here
+        // 2. Navigate to dashboard with location info
+        navigate('/dashboard', { state: { location } });
       } catch (err: any) {
         setError(err.message || 'Error fetching location');
       } finally {
@@ -121,16 +119,8 @@ export function LandingPage() {
                 </Button>
               </div>
             </div>
-            {/* Location Result or Error */}
+            {/* Error */}
             {error && <div className="text-red-600 mt-2">{error}</div>}
-            {locationResult && (
-              <div className="mt-4 bg-blue-50 p-4 rounded shadow text-left">
-                <div className="text-lg font-semibold mb-1">{locationResult.display_name}</div>
-                <div className="text-gray-700">Lat: <span className="font-bold">{locationResult.lat}</span></div>
-                <div className="text-gray-700">Lon: <span className="font-bold">{locationResult.lon}</span></div>
-                {/* Add AQI info here if you fetch it */}
-              </div>
-            )}
           </motion.div>
 
           {/* Quick Stats */}
