@@ -33,6 +33,7 @@ type DashboardData = {
 };
 
 const NOMINATIM_API_URL = 'https://nominatim.openstreetmap.org/search';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -71,7 +72,7 @@ export function Dashboard() {
       setLoading(true);
       setError(null);
       // Fetch from backend proxy instead of directly from WAQI
-      const res = await fetch(`/api/aqi/waqi?lat=${lat}&lon=${lon}`).catch(() => {
+      const res = await fetch(`${BACKEND_URL}/aqi/waqi?lat=${lat}&lon=${lon}`).catch(() => {
         setError('Failed to fetch AQI data');
         setLoading(false);
         return null;
