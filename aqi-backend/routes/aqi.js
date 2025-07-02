@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const axios = require('axios');
 const supabase = require('../utils/supabaseClient');
+const express = require('express');
+const fetch = require('node-fetch');
 
 router.get('/current', async (req, res) => {
   const { lat, lon } = req.query;
@@ -58,6 +60,26 @@ router.post('/user-health', async (req, res) => {
     res.json({ health_condition: user.health_condition });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch user health condition' });
+  }
+});
+
+// Secure WAQI proxy route
+router.get('/waqi', async (req, res) => {
+  const { lat, lon } = req.query;
+  if (!lat || !lon) {
+    return res.status(400).json({ error: 'Missing lat or lon' });
+  }
+  const token = process.env.WAQI_TOKEN;
+  if (!token) {
+    return res.status(500).json({ error: 'WAQI token not configured' });
+  }
+  const url = `https://api.waqi.info/feed/geo:${lat};${lon}/?token=${token}`;
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch WAQI data' });
   }
 });
 

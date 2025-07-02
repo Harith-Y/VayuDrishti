@@ -41,7 +41,7 @@ export function Settings() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user) return;
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
@@ -78,11 +78,33 @@ export function Settings() {
     }));
   };
 
+  // Geocode the location input
+  async function geocodeLocation(input: string) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lon: parseFloat(data[0].lon),
+        display_name: data[0].display_name,
+      };
+    }
+    return null;
+  }
+
   const handleSave = async () => {
     if (!user) return;
     setSaveStatus('idle');
+    // Geocode the location before saving
+    const geocoded = await geocodeLocation(settings.location);
+    if (!geocoded) {
+      setSaveStatus('error');
+      // Optionally show error to user: "Location not found"
+      return;
+    }
     const updates = {
-      location: settings.location,
+      location: geocoded, // Save the geocoded object
       alert_threshold: settings.thresholdValue[0],
     };
     const { error } = await supabase
@@ -96,6 +118,14 @@ export function Settings() {
     }
     setTimeout(() => setSaveStatus('idle'), 3000);
   };
+
+  // Helper to get display name for location input
+  function getLocationInputValue(location: string | { display_name?: string }) {
+    if (typeof location === 'object' && location !== null && 'display_name' in location) {
+      return location.display_name;
+    }
+    return location as string;
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -133,7 +163,7 @@ export function Settings() {
               <Label htmlFor="location">Primary Location</Label>
               <Input
                 id="location"
-                value={settings.location}
+                value={getLocationInputValue(settings.location)}
                 onChange={(e) => handleInputChange('location', e.target.value)}
                 placeholder="Enter city name or PIN code"
               />
