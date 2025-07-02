@@ -32,6 +32,8 @@ type DashboardData = {
   };
 };
 
+const NOMINATIM_API_URL = 'https://nominatim.openstreetmap.org/search';
+
 export function Dashboard() {
   const { user } = useAuth();
   const locationState = useLocation();
@@ -63,10 +65,9 @@ export function Dashboard() {
     async function fetchWAQIByLatLon(lat: number, lon: number) {
       setLoading(true);
       setError(null);
-      const token = import.meta.env.VITE_WAQI_TOKEN;
-      const url = `https://api.waqi.info/feed/geo:${lat};${lon}/?token=${token}`;
-      const res = await fetch(url).catch(() => {
-        setError('Failed to fetch WAQI data');
+      // Fetch from backend proxy instead of directly from WAQI
+      const res = await fetch(`/api/waqi?lat=${lat}&lon=${lon}`).catch(() => {
+        setError('Failed to fetch AQI data');
         setLoading(false);
         return null;
       });
@@ -91,16 +92,26 @@ export function Dashboard() {
         setLoading(false);
         return true;
       } else {
-        setError('No WAQI data found for this location.');
+        setError('No AQI data found for this location.');
         setLoading(false);
         return false;
       }
     }
 
+    /**
+     * Uses encodeURIComponent to sanitize user input for the geocoding API URL.
+     * For additional security, input is validated to allow only reasonable city names or pincodes.
+     * This helps prevent injection attacks and malformed requests.
+     */
+    function isValidCityName(cityName: string) {
+      // Allow only letters, numbers, spaces, commas, hyphens, and limit length
+      return /^[a-zA-Z0-9\s,-]{1,100}$/.test(cityName);
+    }
+
     async function fetchWAQIByCity(cityName: string | null) {
       // Use a geocoding API to get lat/lon for the city
-      if (!cityName) return false;
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}`;
+      if (!cityName || !isValidCityName(cityName)) return false;
+      const url = `${NOMINATIM_API_URL}?format=json&q=${encodeURIComponent(cityName)}`;
       const res = await fetch(url);
       const data = await res.json();
       if (data && data.length > 0) {
@@ -111,34 +122,56 @@ export function Dashboard() {
       return false;
     }
 
+    async function tryFetchByPassedLocation() {
+      if (passedLocation?.lat && passedLocation?.lon) {
+        return await fetchWAQIByLatLon(passedLocation.lat, passedLocation.lon);
+      }
+      return false;
+    }
+
+    async function tryFetchByUserLocation() {
+      if (!user) return false;
+      const { data } = await supabase
+        .from('users')
+        .select('location')
+        .eq('id', user.id)
+        .single();
+      return data?.location ? await fetchWAQIByCity(data.location) : false;
+    }
+
     async function fetchDataWithLatLonFallbacks() {
-      // 1. Try WAQI by lat/lon if available
-      if (passedLocation && passedLocation.lat && passedLocation.lon) {
-        const tried = await fetchWAQIByLatLon(passedLocation.lat, passedLocation.lon);
-        if (tried) return;
-      }
-      // 2. Try user settings location if logged in
-      if (user) {
-        const { data } = await supabase
-          .from('users')
-          .select('location')
-          .eq('id', user.id)
-          .single();
-        if (data && data.location) {
-          const tried = await fetchWAQIByCity(data.location);
-          if (tried) return;
-        }
-      }
-      // 3. Fallback to Delhi
+      const fromPassed = await tryFetchByPassedLocation();
+      if (fromPassed) return;
+      const fromUser = await tryFetchByUserLocation();
+      if (fromUser) return;
       await fetchWAQIByCity('Delhi');
     }
 
-    fetchDataWithLatLonFallbacks();
+    let pollInterval: NodeJS.Timeout;
 
-    // Poll every 5 minutes for updates
-    const interval = setInterval(fetchDataWithLatLonFallbacks, 300000);
+    function startPolling() {
+      fetchDataWithLatLonFallbacks();
+      pollInterval = setInterval(fetchDataWithLatLonFallbacks, 300000);
+    }
+
+    function stopPolling() {
+      clearInterval(pollInterval);
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        startPolling();
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    startPolling();
+
     return () => {
-      clearInterval(interval);
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [passedLocation, user]);
 
@@ -264,7 +297,21 @@ function getCategoryFromAQI(aqi: number): PollutantStatus {
   return 'hazardous';
 }
 
-// Add pollutant status categorization for Indian standards
+/**
+ * Categorizes pollutant concentration values into air quality status
+ * based on Indian National Air Quality Standards (NAAQS) breakpoints.
+ * 
+ * These breakpoints are derived from CPCB guidelines and are commonly used
+ * in Indian AQI dashboards. The categories are:
+ * - 'good'
+ * - 'moderate'
+ * - 'unhealthy'
+ * - 'hazardous'
+ * 
+ * Note: These thresholds may differ from international standards (e.g., US EPA).
+ * For official reference, see: 
+ * https://cpcb.nic.in/displaypdf.php?id=aHdtcC1haXItcXVhbGl0eS1pbmRleC1yZXBvcnQucGRm
+ */
 function getCategoryFromPollutant(type: string, value: number): PollutantStatus {
   switch (type) {
     case 'pm25':
