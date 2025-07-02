@@ -14,64 +14,80 @@ export default function ResetPassword() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // On mount, if hash contains access_token and type=recovery, set session and allow password reset
   useEffect(() => {
     const handleRecoveryAndCheck = async () => {
-      const hash = window.location.hash.replace(/^#/, "");
-      const params = new URLSearchParams(hash);
-      const access_token = params.get("access_token");
-      const refresh_token = params.get("refresh_token");
-      const type = params.get("type");
-      let sessionError = null;
+      try {
+        // First, try to parse from URL search params (modern Supabase)
+        const urlParams = new URLSearchParams(location.search);
+        let access_token = urlParams.get("access_token");
+        let refresh_token = urlParams.get("refresh_token");
+        let type = urlParams.get("type");
 
-      if (access_token && type === "recovery") {
-        try {
-          // Set the session using the access_token and refresh_token (if present)
-          await supabase.auth.setSession({
+        // If not found in search params, try hash fragment (legacy)
+        if (!access_token) {
+          const hash = window.location.hash.replace(/^#/, "");
+          const hashParams = new URLSearchParams(hash);
+          access_token = hashParams.get("access_token");
+          refresh_token = hashParams.get("refresh_token");
+          type = hashParams.get("type");
+        }
+
+        console.log("Recovery tokens:", { access_token: !!access_token, type }); // Debug log
+
+        if (access_token && type === "recovery") {
+          // Set the session using the access_token and refresh_token
+          const { data, error: sessionError } = await supabase.auth.setSession({
             access_token,
             refresh_token: refresh_token || "",
           });
-        } catch (e) {
-          if (e instanceof Error) {
-            sessionError = e.message;
+
+          if (sessionError) {
+            console.error("Session error:", sessionError);
+            setValidRecovery(false);
+            setError("Invalid or expired reset link. " + sessionError.message);
+          } else if (data.session && data.session.user) {
+            console.log("Session set successfully for user:", data.session.user.id);
+            setValidRecovery(true);
+            setError("");
           } else {
-            sessionError = String(e) || "Session error";
+            setValidRecovery(false);
+            setError("Unable to establish session.");
           }
+        } else {
+          setValidRecovery(false);
+          setError("Invalid or expired reset link. Missing recovery parameters.");
         }
-      }
-
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
-
-      if (sessionError) {
+      } catch (e) {
+        console.error("Recovery error:", e);
         setValidRecovery(false);
-        setError("Invalid or expired reset link. " + sessionError);
-      } else if (session && session.user && type === "recovery") {
-        setValidRecovery(true);
-        setError("");
-      } else {
-        setValidRecovery(false);
-        setError("Invalid or expired reset link.");
+        setError("Error processing reset link: " + (e instanceof Error ? e.message : String(e)));
       }
       setChecking(false);
     };
+
     handleRecoveryAndCheck();
-    // eslint-disable-next-line
-  }, [location, navigate]);
+  }, [location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     setMessage("");
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      setMessage("Password updated! You can now log in.");
-      setTimeout(() => navigate("/login"), 2000);
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      
+      if (error) {
+        setError(error.message);
+      } else {
+        setMessage("Password updated successfully! You can now log in.");
+        setTimeout(() => navigate("/login"), 2000);
+      }
+    } catch (e) {
+      setError("Error updating password: " + (e instanceof Error ? e.message : String(e)));
     }
+    
+    setLoading(false);
   };
 
   if (checking) {
