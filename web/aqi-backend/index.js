@@ -13,4 +13,4 @@ app.use('/api/aqi', require('./routes/aqi'));
 app.use('/api/forecast', require('./routes/forecast'));
 app.use('/api/alerts', require('./routes/alerts'));
 
-app.listen(PORT, () => console.log('Server running on port ${PORT}'));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
