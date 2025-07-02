@@ -81,7 +81,7 @@ export default function ResetPassword() {
           // Set the session using the tokens
           const { data, error: sessionError } = await supabase.auth.setSession({
             access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token,
+            refresh_token: tokens.refresh_token || "",
           });
 
           if (sessionError) {
