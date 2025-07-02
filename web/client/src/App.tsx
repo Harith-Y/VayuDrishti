@@ -11,6 +11,7 @@ import { Toaster } from '@/components/ui/toaster';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import NotFound from './pages/NotFound';
 import { useEffect, useState, createContext, useContext } from 'react';
 import { supabase } from './lib/supabaseClient';
@@ -66,6 +67,7 @@ function App() {
               <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
               <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/" element={<LandingPage user={user} />} />
               <Route path="/dashboard" element={<PrivateRoute user={user}><Dashboard /></PrivateRoute>} />
               <Route path="/trends" element={<PrivateRoute user={user}><HistoricalTrends /></PrivateRoute>} />
