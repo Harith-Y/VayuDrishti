@@ -62,11 +62,16 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Save passedLocation to localStorage when present
+    if (passedLocation && passedLocation.lat && passedLocation.lon) {
+      localStorage.setItem('lastLocation', JSON.stringify(passedLocation));
+    }
+
     async function fetchWAQIByLatLon(lat: number, lon: number) {
       setLoading(true);
       setError(null);
       // Fetch from backend proxy instead of directly from WAQI
-      const res = await fetch(`/api/waqi?lat=${lat}&lon=${lon}`).catch(() => {
+      const res = await fetch(`/api/aqi/waqi?lat=${lat}&lon=${lon}`).catch(() => {
         setError('Failed to fetch AQI data');
         setLoading(false);
         return null;
@@ -129,6 +134,19 @@ export function Dashboard() {
       return false;
     }
 
+    async function tryFetchByLocalStorage() {
+      const lastLocation = localStorage.getItem('lastLocation');
+      if (lastLocation) {
+        try {
+          const loc = JSON.parse(lastLocation);
+          if (loc.lat && loc.lon) {
+            return await fetchWAQIByLatLon(loc.lat, loc.lon);
+          }
+        } catch {}
+      }
+      return false;
+    }
+
     async function tryFetchByUserLocation() {
       if (!user) return false;
       const { data } = await supabase
@@ -136,14 +154,24 @@ export function Dashboard() {
         .select('location')
         .eq('id', user.id)
         .single();
-      return data?.location ? await fetchWAQIByCity(data.location) : false;
+      if (!data || !data.location) return false;
+      if (typeof data.location === 'object' && data.location.lat && data.location.lon) {
+        return await fetchWAQIByLatLon(data.location.lat, data.location.lon);
+      }
+      return await fetchWAQIByCity(data.location);
     }
 
     async function fetchDataWithLatLonFallbacks() {
+      // 1. Try passed location (from search or navigation)
       const fromPassed = await tryFetchByPassedLocation();
       if (fromPassed) return;
+      // 2. Try last location from localStorage
+      const fromLocal = await tryFetchByLocalStorage();
+      if (fromLocal) return;
+      // 3. If no passed/localStorage location, use user's settings location as default
       const fromUser = await tryFetchByUserLocation();
       if (fromUser) return;
+      // 4. Fallback to Delhi
       await fetchWAQIByCity('Delhi');
     }
 
