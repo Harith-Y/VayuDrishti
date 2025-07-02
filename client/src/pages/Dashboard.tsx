@@ -32,69 +32,118 @@ type DashboardData = {
   };
 };
 
-// Mock data - in real app, this would come from an API
-const mockData: DashboardData = {
-  location: 'Delhi, India',
-  aqi: 78,
-  category: 'moderate',
-  lastUpdated: new Date(),
-  pollutants: {
-    pm25: { value: 45, unit: 'μg/m³', status: 'moderate' },
-    pm10: { value: 72, unit: 'μg/m³', status: 'moderate' },
-    no2: { value: 28, unit: 'ppb', status: 'good' },
-    so2: { value: 8, unit: 'ppb', status: 'good' },
-    co: { value: 1.2, unit: 'ppm', status: 'good' },
-    o3: { value: 65, unit: 'ppb', status: 'moderate' }
-  }
-};
-
 export function Dashboard() {
   const { user } = useAuth();
   const locationState = useLocation();
   const passedLocation = locationState.state?.location;
+  const defaultLocation = {
+    lat: 28.6139,
+    lon: 77.2090,
+    display_name: 'Delhi, India',
+  };
+  const locationInfo = passedLocation || defaultLocation;
   const [currentData, setCurrentData] = useState<DashboardData>({
-    ...mockData,
-    location: passedLocation?.display_name || mockData.location,
+    location: locationInfo.display_name,
+    aqi: 0,
+    category: 'good',
+    lastUpdated: new Date(),
+    pollutants: {
+      pm25: { value: 0, unit: 'μg/m³', status: 'good' },
+      pm10: { value: 0, unit: 'μg/m³', status: 'good' },
+      no2: { value: 0, unit: 'ppb', status: 'good' },
+      so2: { value: 0, unit: 'ppb', status: 'good' },
+      co: { value: 0, unit: 'ppm', status: 'good' },
+      o3: { value: 0, unit: 'ppb', status: 'good' }
+    }
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If the location changes (e.g., user navigates with a new search), update the location
-    if (passedLocation?.display_name) {
-      setCurrentData(prev => ({ ...prev, location: passedLocation.display_name }));
-    } else if (user) {
-      // Fetch user's saved location from Supabase
-      (async () => {
+    async function fetchWAQIByLatLon(lat: number, lon: number) {
+      setLoading(true);
+      setError(null);
+      const token = import.meta.env.VITE_WAQI_TOKEN;
+      const url = `https://api.waqi.info/feed/geo:${lat};${lon}/?token=${token}`;
+      const res = await fetch(url).catch(() => {
+        setError('Failed to fetch WAQI data');
+        setLoading(false);
+        return null;
+      });
+      if (!res) return false;
+      const data = await res.json();
+      if (data.status === 'ok') {
+        const iaqi = data.data.iaqi || {};
+        setCurrentData({
+          location: data.data.city?.name || 'Selected Location',
+          aqi: Number(data.data.aqi),
+          category: getCategoryFromAQI(Number(data.data.aqi)),
+          lastUpdated: new Date((data.data.time?.iso) || Date.now()),
+          pollutants: {
+            pm25: { value: iaqi.pm25?.v ?? 0, unit: 'μg/m³', status: getCategoryFromPollutant('pm25', iaqi.pm25?.v ?? 0) },
+            pm10: { value: iaqi.pm10?.v ?? 0, unit: 'μg/m³', status: getCategoryFromPollutant('pm10', iaqi.pm10?.v ?? 0) },
+            no2: { value: iaqi.no2?.v ?? 0, unit: 'ppb', status: getCategoryFromPollutant('no2', iaqi.no2?.v ?? 0) },
+            so2: { value: iaqi.so2?.v ?? 0, unit: 'ppb', status: getCategoryFromPollutant('so2', iaqi.so2?.v ?? 0) },
+            co: { value: iaqi.co?.v ?? 0, unit: 'ppm', status: getCategoryFromPollutant('co', iaqi.co?.v ?? 0) },
+            o3: { value: iaqi.o3?.v ?? 0, unit: 'ppb', status: getCategoryFromPollutant('o3', iaqi.o3?.v ?? 0) }
+          }
+        });
+        setLoading(false);
+        return true;
+      } else {
+        setError('No WAQI data found for this location.');
+        setLoading(false);
+        return false;
+      }
+    }
+
+    async function fetchWAQIByCity(cityName: string | null) {
+      // Use a geocoding API to get lat/lon for the city
+      if (!cityName) return false;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        return await fetchWAQIByLatLon(lat, lon);
+      }
+      return false;
+    }
+
+    async function fetchDataWithLatLonFallbacks() {
+      // 1. Try WAQI by lat/lon if available
+      if (passedLocation && passedLocation.lat && passedLocation.lon) {
+        const tried = await fetchWAQIByLatLon(passedLocation.lat, passedLocation.lon);
+        if (tried) return;
+      }
+      // 2. Try user settings location if logged in
+      if (user) {
         const { data } = await supabase
           .from('users')
           .select('location')
           .eq('id', user.id)
           .single();
         if (data && data.location) {
-          setCurrentData(prev => ({ ...prev, location: data.location }));
+          const tried = await fetchWAQIByCity(data.location);
+          if (tried) return;
         }
-      })();
+      }
+      // 3. Fallback to Delhi
+      await fetchWAQIByCity('Delhi');
     }
+
+    fetchDataWithLatLonFallbacks();
+
+    // Poll every 5 minutes for updates
+    const interval = setInterval(fetchDataWithLatLonFallbacks, 300000);
+    return () => {
+      clearInterval(interval);
+    };
   }, [passedLocation, user]);
 
-  useEffect(() => {
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      setCurrentData(prev => ({
-        ...prev,
-        aqi: prev.aqi + Math.floor(Math.random() * 10 - 5),
-        lastUpdated: new Date(),
-        pollutants: {
-          ...prev.pollutants,
-          pm25: {
-            ...prev.pollutants.pm25,
-            value: Math.max(0, prev.pollutants.pm25.value + Math.floor(Math.random() * 6 - 3))
-          }
-        }
-      }));
-    }, 30000); // Update every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -206,4 +255,49 @@ export function Dashboard() {
       </motion.div>
     </div>
   );
+}
+
+function getCategoryFromAQI(aqi: number): PollutantStatus {
+  if (aqi <= 50) return 'good';
+  if (aqi <= 100) return 'moderate';
+  if (aqi <= 150) return 'unhealthy';
+  return 'hazardous';
+}
+
+// Add pollutant status categorization for Indian standards
+function getCategoryFromPollutant(type: string, value: number): PollutantStatus {
+  switch (type) {
+    case 'pm25':
+      if (value <= 30) return 'good';
+      if (value <= 60) return 'moderate';
+      if (value <= 90) return 'unhealthy';
+      return 'hazardous';
+    case 'pm10':
+      if (value <= 50) return 'good';
+      if (value <= 100) return 'moderate';
+      if (value <= 250) return 'unhealthy';
+      return 'hazardous';
+    case 'no2':
+      if (value <= 40) return 'good';
+      if (value <= 80) return 'moderate';
+      if (value <= 180) return 'unhealthy';
+      return 'hazardous';
+    case 'so2':
+      if (value <= 40) return 'good';
+      if (value <= 80) return 'moderate';
+      if (value <= 380) return 'unhealthy';
+      return 'hazardous';
+    case 'co':
+      if (value <= 1) return 'good';
+      if (value <= 2) return 'moderate';
+      if (value <= 10) return 'unhealthy';
+      return 'hazardous';
+    case 'o3':
+      if (value <= 50) return 'good';
+      if (value <= 100) return 'moderate';
+      if (value <= 168) return 'unhealthy';
+      return 'hazardous';
+    default:
+      return 'good';
+  }
 }
