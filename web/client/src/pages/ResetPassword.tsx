@@ -3,6 +3,32 @@ import { supabase } from "../lib/supabaseClient";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Lock } from 'lucide-react';
 
+// Store tokens globally to prevent them from being lost during redirects
+let storedTokens: { access_token: string; refresh_token: string; type: string } | null = null;
+
+// Function to extract and store tokens immediately when the script loads
+const extractTokensFromURL = () => {
+  if (typeof window !== 'undefined' && !storedTokens) {
+    const hash = window.location.hash.replace(/^#/, "");
+    if (hash) {
+      const hashParams = new URLSearchParams(hash);
+      const access_token = hashParams.get("access_token");
+      const refresh_token = hashParams.get("refresh_token");
+      const type = hashParams.get("type");
+      
+      if (access_token && type === "recovery") {
+        storedTokens = { access_token, refresh_token: refresh_token || "", type };
+        console.log("Tokens extracted and stored:", { access_token: !!access_token, type });
+        // Clean the URL immediately
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }
+};
+
+// Extract tokens immediately when this module loads
+extractTokensFromURL();
+
 export default function ResetPassword() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,36 +43,45 @@ export default function ResetPassword() {
   useEffect(() => {
     const handleRecoveryAndCheck = async () => {
       try {
-        // Get the full URL to check for tokens
-        const currentUrl = window.location.href;
-        console.log("Current URL:", currentUrl);
+        console.log("Component mounted, checking for tokens...");
+        
+        // Try to extract tokens one more time in case they weren't caught initially
+        if (!storedTokens) {
+          extractTokensFromURL();
+        }
 
-        // Parse from hash fragment (Supabase uses this format)
+        // Also check current URL in case tokens are still there
         const hash = window.location.hash.replace(/^#/, "");
         const hashParams = new URLSearchParams(hash);
-        
-        // Also check URL search params as fallback
         const urlParams = new URLSearchParams(location.search);
         
-        const access_token = hashParams.get("access_token") || urlParams.get("access_token");
-        const refresh_token = hashParams.get("refresh_token") || urlParams.get("refresh_token");
-        const type = hashParams.get("type") || urlParams.get("type");
+        const currentTokens = {
+          access_token: hashParams.get("access_token") || urlParams.get("access_token"),
+          refresh_token: hashParams.get("refresh_token") || urlParams.get("refresh_token"),
+          type: hashParams.get("type") || urlParams.get("type")
+        };
 
-        console.log("Recovery tokens found:", { 
-          access_token: !!access_token, 
-          refresh_token: !!refresh_token, 
-          type,
-          hash: hash.substring(0, 50) + "..." 
+        // Use stored tokens or current tokens
+        const tokens = storedTokens || (currentTokens.access_token ? currentTokens : null);
+        
+        console.log("Available tokens:", {
+          stored: !!storedTokens,
+          current: !!currentTokens.access_token,
+          final: !!tokens
         });
 
-        if (access_token && type === "recovery") {
-          // Clean the URL to remove the tokens from the hash
-          window.history.replaceState({}, document.title, window.location.pathname);
+        if (tokens && tokens.access_token && tokens.type === "recovery") {
+          // Clean the URL if tokens are still in hash
+          if (window.location.hash) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
           
-          // Set the session using the access_token and refresh_token
+          console.log("Setting session with recovery tokens...");
+          
+          // Set the session using the tokens
           const { data, error: sessionError } = await supabase.auth.setSession({
-            access_token,
-            refresh_token: refresh_token || "",
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
           });
 
           if (sessionError) {
@@ -57,18 +92,17 @@ export default function ResetPassword() {
             console.log("Session set successfully for user:", data.session.user.id);
             setValidRecovery(true);
             setError("");
+            // Clear stored tokens after successful use
+            storedTokens = null;
           } else {
+            console.log("Session data:", data);
             setValidRecovery(false);
-            setError("Unable to establish session.");
+            setError("Unable to establish session with the provided tokens.");
           }
-        } else if (hash && !access_token) {
-          // There's a hash but no access_token, might be an error
-          console.log("Hash present but no access_token:", hash);
-          setValidRecovery(false);
-          setError("Invalid reset link format.");
         } else {
+          console.log("No valid recovery tokens found");
           setValidRecovery(false);
-          setError("Invalid or expired reset link. Please request a new password reset.");
+          setError("No valid reset link found. Please request a new password reset email.");
         }
       } catch (e) {
         console.error("Recovery error:", e);
@@ -78,15 +112,8 @@ export default function ResetPassword() {
       setChecking(false);
     };
 
-    // Only run if we're actually on the reset-password page
-    if (location.pathname === '/reset-password') {
-      handleRecoveryAndCheck();
-    } else {
-      setChecking(false);
-      setValidRecovery(false);
-      setError("Invalid page for password reset.");
-    }
-  }, [location]);
+    handleRecoveryAndCheck();
+  }, []); // Remove location dependency to prevent re-runs
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
