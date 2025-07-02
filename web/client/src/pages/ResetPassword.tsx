@@ -17,24 +17,32 @@ export default function ResetPassword() {
   useEffect(() => {
     const handleRecoveryAndCheck = async () => {
       try {
-        // First, try to parse from URL search params (modern Supabase)
+        // Get the full URL to check for tokens
+        const currentUrl = window.location.href;
+        console.log("Current URL:", currentUrl);
+
+        // Parse from hash fragment (Supabase uses this format)
+        const hash = window.location.hash.replace(/^#/, "");
+        const hashParams = new URLSearchParams(hash);
+        
+        // Also check URL search params as fallback
         const urlParams = new URLSearchParams(location.search);
-        let access_token = urlParams.get("access_token");
-        let refresh_token = urlParams.get("refresh_token");
-        let type = urlParams.get("type");
+        
+        const access_token = hashParams.get("access_token") || urlParams.get("access_token");
+        const refresh_token = hashParams.get("refresh_token") || urlParams.get("refresh_token");
+        const type = hashParams.get("type") || urlParams.get("type");
 
-        // If not found in search params, try hash fragment (legacy)
-        if (!access_token) {
-          const hash = window.location.hash.replace(/^#/, "");
-          const hashParams = new URLSearchParams(hash);
-          access_token = hashParams.get("access_token");
-          refresh_token = hashParams.get("refresh_token");
-          type = hashParams.get("type");
-        }
-
-        console.log("Recovery tokens:", { access_token: !!access_token, type }); // Debug log
+        console.log("Recovery tokens found:", { 
+          access_token: !!access_token, 
+          refresh_token: !!refresh_token, 
+          type,
+          hash: hash.substring(0, 50) + "..." 
+        });
 
         if (access_token && type === "recovery") {
+          // Clean the URL to remove the tokens from the hash
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
           // Set the session using the access_token and refresh_token
           const { data, error: sessionError } = await supabase.auth.setSession({
             access_token,
@@ -53,9 +61,14 @@ export default function ResetPassword() {
             setValidRecovery(false);
             setError("Unable to establish session.");
           }
+        } else if (hash && !access_token) {
+          // There's a hash but no access_token, might be an error
+          console.log("Hash present but no access_token:", hash);
+          setValidRecovery(false);
+          setError("Invalid reset link format.");
         } else {
           setValidRecovery(false);
-          setError("Invalid or expired reset link. Missing recovery parameters.");
+          setError("Invalid or expired reset link. Please request a new password reset.");
         }
       } catch (e) {
         console.error("Recovery error:", e);
@@ -65,7 +78,14 @@ export default function ResetPassword() {
       setChecking(false);
     };
 
-    handleRecoveryAndCheck();
+    // Only run if we're actually on the reset-password page
+    if (location.pathname === '/reset-password') {
+      handleRecoveryAndCheck();
+    } else {
+      setChecking(false);
+      setValidRecovery(false);
+      setError("Invalid page for password reset.");
+    }
   }, [location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
