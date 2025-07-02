@@ -14,15 +14,15 @@ export default function ResetPassword() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // On mount, if query contains access_token and type=recovery, set recovery session, then check session
+  // On mount, if query contains code and type=recovery, set recovery session, then check session
   useEffect(() => {
     const handleRecoveryAndCheck = async () => {
       const params = new URLSearchParams(window.location.search);
-      const accessToken = params.get("access_token");
+      const code = params.get("code");
       const type = params.get("type");
       let exchangeError = null;
 
-      if (accessToken && type === "recovery") {
+      if (code && type === "recovery") {
         const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(window.location.href);
         if (exchangeErr) {
           exchangeError = exchangeErr.message;
