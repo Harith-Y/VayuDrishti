@@ -14,13 +14,15 @@ export default function ResetPassword() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // On mount, if hash contains access_token, set recovery session, then check session
+  // On mount, if query contains access_token and type=recovery, set recovery session, then check session
   useEffect(() => {
     const handleRecoveryAndCheck = async () => {
-      const hash = window.location.hash;
-      if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(window.location.search);
+      const accessToken = params.get("access_token");
+      const type = params.get("type");
+      if (accessToken && type === "recovery") {
         try {
-            await supabase.auth.exchangeCodeForSession(window.location.href);
+          await supabase.auth.exchangeCodeForSession(window.location.href);
         } catch (e) {
           // ignore errors, will be handled in session check
         }
@@ -28,17 +30,9 @@ export default function ResetPassword() {
       // Now check session as before
       const { data } = await supabase.auth.getSession();
       const session = data.session;
-      const params = new URLSearchParams(hash.replace(/^#/, ""));
-      const type = params.get("type");
-      if (session && session.user) {
-        if (type === "recovery") {
-          setValidRecovery(true);
-          setError("");
-        } else {
-          setValidRecovery(false);
-          setError("You are already logged in. Password reset is not allowed.");
-          setTimeout(() => navigate("/dashboard"), 2000);
-        }
+      if (session && session.user && type === "recovery") {
+        setValidRecovery(true);
+        setError("");
       } else {
         setValidRecovery(false);
         setError("Invalid or expired reset link.");
