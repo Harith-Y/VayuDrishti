@@ -20,17 +20,22 @@ export default function ResetPassword() {
       const params = new URLSearchParams(window.location.search);
       const accessToken = params.get("access_token");
       const type = params.get("type");
+      let exchangeError = null;
+
       if (accessToken && type === "recovery") {
-        try {
-          await supabase.auth.exchangeCodeForSession(window.location.href);
-        } catch (e) {
-          // ignore errors, will be handled in session check
+        const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(window.location.href);
+        if (exchangeErr) {
+          exchangeError = exchangeErr.message;
         }
       }
-      // Now check session as before
+
       const { data } = await supabase.auth.getSession();
       const session = data.session;
-      if (session && session.user && type === "recovery") {
+
+      if (exchangeError) {
+        setValidRecovery(false);
+        setError("Invalid or expired reset link. " + exchangeError);
+      } else if (session && session.user && type === "recovery") {
         setValidRecovery(true);
         setError("");
       } else {
