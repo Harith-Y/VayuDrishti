@@ -10,21 +10,44 @@ export default function ResetPassword() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [validRecovery, setValidRecovery] = useState(false);
+  const [checking, setChecking] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Parse access_token and type from URL hash
+  // On mount, if hash contains access_token, set recovery session, then check session
   useEffect(() => {
-    const hash = location.hash;
-    const params = new URLSearchParams(hash.replace(/^#/, ""));
-    const type = params.get("type");
-    if (type === "recovery") {
-      setValidRecovery(true);
-    } else {
-      setValidRecovery(false);
-      setError("Invalid or expired reset link.");
-    }
-  }, [location]);
+    const handleRecoveryAndCheck = async () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes("access_token")) {
+        try {
+            await supabase.auth.exchangeCodeForSession(window.location.href);
+        } catch (e) {
+          // ignore errors, will be handled in session check
+        }
+      }
+      // Now check session as before
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+      const params = new URLSearchParams(hash.replace(/^#/, ""));
+      const type = params.get("type");
+      if (session && session.user) {
+        if (type === "recovery") {
+          setValidRecovery(true);
+          setError("");
+        } else {
+          setValidRecovery(false);
+          setError("You are already logged in. Password reset is not allowed.");
+          setTimeout(() => navigate("/dashboard"), 2000);
+        }
+      } else {
+        setValidRecovery(false);
+        setError("Invalid or expired reset link.");
+      }
+      setChecking(false);
+    };
+    handleRecoveryAndCheck();
+    // eslint-disable-next-line
+  }, [location, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +63,14 @@ export default function ResetPassword() {
       setTimeout(() => navigate("/login"), 2000);
     }
   };
+
+  if (checking) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 via-white to-green-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="text-blue-700 dark:text-blue-300 font-semibold text-lg">Checking reset link...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 via-white to-green-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
